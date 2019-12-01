@@ -20,8 +20,8 @@ class QtradeEnv(gym.Env):
         self.df = pd.read_csv(self.root_dir + self.df_dir)
         self.alpha = Alpha(self.df)
         self.cost = 0.00
-        self.interest_rate = 0.1/240/240  # internal interest rate
-        self.window = 50
+        self.interest_rate = 0.05/240/240  # internal interest rate
+        self.window = 30
         self.cash = 1
         self.stock = 0
         self.t = self.window + 1
@@ -72,7 +72,7 @@ class QtradeEnv(gym.Env):
 
     def step(self, action):
         # action[buy/sell/hold]
-        print(self.t, action, self.cash/self.asset0)
+        print(self.t, self.list_asset[self.t]/self.asset0, action, self.cash/self.asset0)
         decision = action[0]
         order_price_b = self.close[self.t] - self.mstd[self.t] * action[1]
         order_price_s = self.close[self.t] + self.mstd[self.t] * action[2]
@@ -121,8 +121,8 @@ class QtradeEnv(gym.Env):
 
         self.df_dir = np.random.choice(self.list_dir)
         self.df = pd.read_csv(self.root_dir + self.df_dir)
-        rnd_int = np.random.randint(0, len(self.df) - 2000)
-        self.df = self.df[rnd_int:rnd_int+2000]
+        rnd_int = np.random.randint(0, len(self.df) - 5000)
+        self.df = self.df[rnd_int:rnd_int+5000]
 
         return self._next_observation()
 
