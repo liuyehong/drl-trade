@@ -21,12 +21,14 @@ class QtradeEnv(gym.Env):
         self.alpha = Alpha(self.df)
         self.cost = 0.00
         self.interest_rate = 0.05/240/240  # internal interest rate
-        self.window = 30
+        self.window = 50
         self.cash = 1
         self.stock = 0
         self.t = self.window + 1
         self.T = len(self.df)
         self.list_asset = np.ones(self.T)
+        self.list_holding = np.ones(self.T)
+
 
         # alpha
         self.close = self.alpha.close
@@ -52,11 +54,12 @@ class QtradeEnv(gym.Env):
 
         # Prices contains the OHCL values for the last five prices
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(self.window, 9), dtype=np.float16)
+            low=-np.inf, high=np.inf, shape=(1, self.window, 9), dtype=np.float16)
+
 
     def _next_observation(self):
 
-        obs = np.array([
+        obs = [np.array([
             self.close_diff[self.t-self.window+1:self.t+1]/self.close[self.t - self.window + 1],
             self.high_diff[self.t-self.window+1:self.t+1]/self.high[self.t - self.window + 1],
             self.open_diff[self.t-self.window+1:self.t+1]/self.open[self.t - self.window + 1],
@@ -65,35 +68,43 @@ class QtradeEnv(gym.Env):
             self.high[self.t - self.window + 1:self.t + 1]/self.high[self.t - self.window + 1],
             self.open[self.t - self.window + 1:self.t + 1]/self.open[self.t - self.window + 1],
             self.low[self.t - self.window + 1:self.t + 1]/self.low[self.t - self.window + 1],
-            self.list_cash[self.t - self.window + 1:self.t + 1]
-               ]).T
+            self.list_holding[self.t - self.window + 1:self.t + 1]
+               ]).T]
 
         return obs
 
+    def _utility(self, x):
+        if x > 0:
+            return 1*x
+        else:
+            return 1*x
+
     def step(self, action):
+
         # action[buy/sell/hold]
         print(self.t, self.list_asset[self.t]/self.asset0, action, self.cash/self.asset0)
-        decision = action[0]
-        order_price_b = self.close[self.t] - self.mstd[self.t] * action[1]
-        order_price_s = self.close[self.t] + self.mstd[self.t] * action[2]
+        #decision = action[0]
+        order_price_b = self.ma[self.t] - self.mstd[self.t] * action[0]
+        order_price_s = self.ma[self.t] + self.mstd[self.t] * action[1]
 
-        if self.cash > 0 and order_price_b > self.alpha.low[self.t+1] and decision > 0:
+        if self.cash > 0 and order_price_b > self.alpha.low[self.t+1]:  # and decision > 0:
             self.stock = self.cash/order_price_b*(1-self.cost)
             self.cash = 0
             print('buy')
 
-        elif self.stock > 0 and order_price_s < self.alpha.high[self.t+1] and decision < 0:
+        elif self.stock > 0 and order_price_s < self.alpha.high[self.t+1]:  # and decision < 0:
             self.cash = self.stock*order_price_s*(1-self.cost)
             self.stock = 0
             print('sell')
 
         self.list_asset[self.t+1] = self.stock*self.alpha.close[self.t+1] + self.cash
         self.list_cash = [self.cash > 0]*self.T
+        self.list_holding[self.t+1] = self.cash>0
 
         if self.cash > 0:
-            reward = -self.interest_rate  # penalty for holding cash.
+            reward = self._utility(-self.interest_rate)  # penalty for holding cash.
         else:
-            reward = (self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]
+            reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t])
 
         done = self.t > 2000
 
@@ -107,16 +118,17 @@ class QtradeEnv(gym.Env):
         print('reset')
         self.t = self.window
         self.list_cash = self.T * [1]
+        self.list_holding = self.T*[1]
 
         # random initialization
-        if np.random.rand() > 0.5:
-            self.cash = 1
-            self.stock = 0
-            self.asset0 = 1
-        else:
-            self.cash = 0
-            self.stock = 1
-            self.asset0 = self.stock*self.close[self.t]
+        #if np.random.rand() > 0.5:
+        self.cash = 1
+        self.stock = 0
+        self.asset0 = 1
+        #else:
+        #    self.cash = 0
+        #    self.stock = 1
+        #    self.asset0 = self.stock*self.close[self.t]
 
 
         self.df_dir = np.random.choice(self.list_dir)
