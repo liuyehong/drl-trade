@@ -50,7 +50,7 @@ class QtradeEnv(gym.Env):
         # Action space range must be symetric and the order matters.
 
         self.action_space = spaces.Box(
-            low=np.array([-np.inf, -np.inf, -np.inf]), high=np.array([np.inf, np.inf, np.inf]), dtype=np.float16)
+            low=np.array([-np.inf, -np.inf]), high=np.array([np.inf, np.inf]), dtype=np.float16)
 
         # Prices contains the OHCL values for the last five prices
         self.observation_space = spaces.Box(
