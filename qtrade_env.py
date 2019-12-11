@@ -28,7 +28,6 @@ class QtradeEnv(gym.Env):
         self.T = len(self.df)
         self.list_asset = np.ones(self.T)
         self.list_holding = np.ones(self.T)
-        self.list_profit = np.zeros(self.T)
 
         # alpha
         self.close = self.alpha.close
@@ -113,19 +112,9 @@ class QtradeEnv(gym.Env):
         self.list_holding[self.t+1] = self.cash>0
 
 
-        if self.cash > 0:
-            reward = self._utility(-self.interest_rate)  # penalty for holding cash.
-            self.profit = 0
-        else:
-            if self.close[self.t + 1] - self.close[self.t]<0:
-                reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]
-                                       -(self.close[self.t + 1] - self.close[self.t])/self.close[self.t])
-            else:
-                reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t]) / self.list_asset[self.t])
+        reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]
+                               -(self.close[self.t + 1] - self.close[self.t])/self.close[self.t])
 
-            self.profit = self.close[self.t]/order_price_b-1
-
-        self.list_profit[self.t + 1] = self.profit
 
         done = self.steps > 5000
         self.steps += 1
@@ -143,7 +132,6 @@ class QtradeEnv(gym.Env):
         self.t = self.window + np.random.random_integers(0, self.T-5000)
         self.list_cash = self.T * [1]
         self.list_holding = self.T*[1]
-        self.list_profit = self.T*[0]
         self.steps = 0
 
         if np.random.rand()>0.5:
