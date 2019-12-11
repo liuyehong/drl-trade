@@ -113,13 +113,17 @@ class QtradeEnv(gym.Env):
         self.list_holding[self.t+1] = self.cash>0
 
 
-        if self.close[self.t + 1] - self.close[self.t]<0:
-            reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]
-                                   -(self.close[self.t + 1] - self.close[self.t])/self.close[self.t])
+        if self.cash > 0:
+            reward = self._utility(-self.interest_rate)  # penalty for holding cash.
+            self.profit = 0
         else:
-            reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t]) / self.list_asset[self.t])
+            if self.close[self.t + 1] - self.close[self.t]<0:
+                reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]
+                                       -(self.close[self.t + 1] - self.close[self.t])/self.close[self.t])
+            else:
+                reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t]) / self.list_asset[self.t])
 
-        self.profit = self.close[self.t]/order_price_b-1
+            self.profit = self.close[self.t]/order_price_b-1
 
         self.list_profit[self.t + 1] = self.profit
 
