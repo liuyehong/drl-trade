@@ -21,7 +21,7 @@ class QtradeEnv(gym.Env):
         self.alpha = Alpha(self.df)
         self.cost = 0.001
         self.interest_rate = 0.0/240/240  # internal interest rate
-        self.window = 100
+        self.window = 30
         self.cash = 1
         self.stock = 0
         self.t = self.window + 1
@@ -55,7 +55,7 @@ class QtradeEnv(gym.Env):
 
         # Prices contains the OHCL values for the last five prices
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(1, self.window, 9), dtype=np.float16)
+            low=-np.inf, high=np.inf, shape=(1, self.window, 13), dtype=np.float16)
 
 
     def _next_observation(self):
@@ -69,6 +69,10 @@ class QtradeEnv(gym.Env):
             self.high[self.t - self.window + 1:self.t + 1] / self.high[self.t - self.window + 1],
             self.open[self.t - self.window + 1:self.t + 1] / self.open[self.t - self.window + 1],
             self.low[self.t - self.window + 1:self.t + 1] / self.low[self.t - self.window + 1],
+            self.ma[self.t - self.window + 1:self.t + 1] / self.ma[self.t - self.window + 1],
+            self.ema[self.t - self.window + 1:self.t + 1] / self.ema[self.t - self.window + 1],
+            self.bollinger_lower_bound[self.t - self.window + 1:self.t + 1] / self.bollinger_lower_bound[self.t - self.window + 1],
+            self.bollinger_upper_bound[self.t - self.window + 1:self.t + 1] / self.bollinger_upper_bound[self.t - self.window + 1],
             self.list_holding[self.t - self.window + 1:self.t + 1]
 
         ]).T]
@@ -109,12 +113,13 @@ class QtradeEnv(gym.Env):
         self.list_holding[self.t+1] = self.cash>0
 
 
-        if self.cash > 0:
-            reward = self._utility(-self.interest_rate)  # penalty for holding cash.
-            self.profit = 0
+        if self.close[self.t + 1] - self.close[self.t]<0:
+            reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]
+                                   -(self.close[self.t + 1] - self.close[self.t])/self.close[self.t])
         else:
-            reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t])
-            self.profit = self.close[self.t]/order_price_b-1
+            reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t]) / self.list_asset[self.t])
+
+        self.profit = self.close[self.t]/order_price_b-1
 
         self.list_profit[self.t + 1] = self.profit
 
