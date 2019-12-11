@@ -19,9 +19,9 @@ class QtradeEnv(gym.Env):
         self.df_dir = np.random.choice(self.list_dir)
         self.df = pd.read_csv(self.root_dir + self.df_dir)
         self.alpha = Alpha(self.df)
-        self.cost = 0.00
-        self.interest_rate = 0.05/240/240  # internal interest rate
-        self.window = 50
+        self.cost = 0.001
+        self.interest_rate = 0.0/240/240  # internal interest rate
+        self.window = 100
         self.cash = 1
         self.stock = 0
         self.t = self.window + 1
@@ -75,7 +75,7 @@ class QtradeEnv(gym.Env):
 
         return obs
 
-    def _utility(self, x):
+    def _utility(self, x): #
         if x > 0:
             return 1*x
         else:
@@ -84,22 +84,25 @@ class QtradeEnv(gym.Env):
     def step(self, action):
 
         # action[buy/sell/hold]
-        print(self.t, self.close[self.t]/self.close0, self.list_asset[self.t]/self.asset0, action)
-        #decision = action[0]
         order_price_b = self.ma[self.t] + self.mstd[self.t] * action[0]
         order_price_s = self.ma[self.t] + self.mstd[self.t] * action[1]
 
-        if self.cash > 0 and order_price_b > self.alpha.close[self.t+1]:
-            take_price = self.alpha.close[self.t+1]
+        if self.cash > 0 and order_price_b > self.alpha.low[self.t+1]:
+            take_price = min(self.alpha.open[self.t+1], order_price_b)
             self.stock = self.cash/take_price*(1-self.cost)
             self.cash = 0
-            print('buy')
+            print('buy: ' + str(take_price))
+            print(self.steps, self.t, self.close[self.t] / self.close0, self.list_asset[self.t] / self.asset0, action,
+                  self.list_asset[self.t] / self.asset0 - self.close[self.t] / self.close0)
 
-        elif self.stock > 0 and order_price_s < self.alpha.close[self.t+1]:
-            take_price = self.alpha.close[self.t+1]
+        elif self.stock > 0 and order_price_s < self.alpha.high[self.t+1]:
+            take_price = max(self.alpha.open[self.t+1], order_price_s)
             self.cash = self.stock*take_price*(1-self.cost)
             self.stock = 0
-            print('sell')
+            print('sell: ' + str(take_price))
+            print(self.steps, self.t, self.close[self.t] / self.close0, self.list_asset[self.t] / self.asset0, action,
+                  self.list_asset[self.t] / self.asset0 - self.close[self.t] / self.close0)
+
 
         self.list_asset[self.t+1] = self.stock*self.alpha.close[self.t+1] + self.cash
         self.list_cash = [self.cash > 0]*self.T
@@ -114,8 +117,9 @@ class QtradeEnv(gym.Env):
             self.profit = self.close[self.t]/order_price_b-1
 
         self.list_profit[self.t + 1] = self.profit
-        done = self.t > 2000
 
+        done = self.steps > 5000
+        self.steps += 1
         obs = self._next_observation()
 
         self.t += 1
@@ -123,32 +127,31 @@ class QtradeEnv(gym.Env):
 
 
     def reset(self):
+        self.df_dir = np.random.choice(self.list_dir)
+        self.df = pd.read_csv(self.root_dir + self.df_dir)
+
         print('reset')
-        self.t = self.window
+        self.t = self.window + np.random.random_integers(0, self.T-5000)
         self.list_cash = self.T * [1]
         self.list_holding = self.T*[1]
         self.list_profit = self.T*[0]
+        self.steps = 0
 
-        # random initialization
-        #if np.random.rand() > 0.5:
-        self.cash = 1
-        self.stock = 0
-        self.asset0 = 1
-        self.close0 = self.close[self.t]
-        #else:
-        #    self.cash = 0
-        #    self.stock = 1
-        #    self.asset0 = self.stock*self.close[self.t]
+        if np.random.rand()>0.5:
+            self.cash = 1
+            self.stock = 0
+            self.asset0 = 1
+            self.close0 = self.close[self.t]
+        else:
+            self.cash = 0
+            self.stock = 1
+            self.asset0 = self.close[self.t]
+            self.close0 = self.close[self.t]
 
-        self.df_dir = np.random.choice(self.list_dir)
-        print(self.df_dir)
-        self.df = pd.read_csv(self.root_dir + self.df_dir)
-        rnd_int = np.random.randint(0, len(self.df) - 5000)
-        self.df = self.df[rnd_int:rnd_int+5000]
 
         return self._next_observation()
 
     def render(self, mode='human'):
 
-        print(self.t, self.list_asset[self.t], self.close[self.t]/self.close[self.window])
+        pass
 
