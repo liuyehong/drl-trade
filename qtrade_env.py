@@ -20,8 +20,8 @@ class QtradeEnv(gym.Env):
         self.df = pd.read_csv(self.root_dir + self.df_dir)
         self.alpha = Alpha(self.df)
         self.cost = 0.001
-        self.interest_rate = 0.0/240/240  # internal interest rate
-        self.window = 30
+        self.interest_rate = 0.05/240/240  # internal interest rate
+        self.window = 50
         self.cash = 1
         self.stock = 0
         self.t = self.window + 1
@@ -42,9 +42,19 @@ class QtradeEnv(gym.Env):
 
         self.ma = self.alpha.moving_average(window=self.window)
         self.ema = self.alpha.EMA(window=self.window)
+        self.dema = self.alpha.DEMA(window=self.window)
+        self.kama = self.alpha.KAMA(window=self.window)
+        self.sma = self.alpha.SMA(window=self.window)
+        self.tema = self.alpha.TEMA(window=self.window)
+        self.trima = self.alpha.TRIMA(window=self.window)
+
+
         self.mstd = self.alpha.moving_std(window=self.window)
         self.bollinger_lower_bound = self.alpha.bollinger_lower_bound(window=self.window, width=1)
         self.bollinger_upper_bound = self.alpha.bollinger_upper_bound(window=self.window, width=1)
+        self.moving_max = self.alpha.moving_max(window=self.window)
+        self.moving_min = self.alpha.moving_min(window=self.window)
+        self.moving_med = self.alpha.moving_med(window=self.window)
 
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         # Action space range must be symetric and the order matters.
@@ -54,7 +64,7 @@ class QtradeEnv(gym.Env):
 
         # Prices contains the OHCL values for the last five prices
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(1, self.window, 13), dtype=np.float16)
+            low=-np.inf, high=np.inf, shape=(1, self.window, 18), dtype=np.float16)
 
 
     def _next_observation(self):
@@ -70,8 +80,14 @@ class QtradeEnv(gym.Env):
             self.low[self.t - self.window + 1:self.t + 1] / self.low[self.t - self.window + 1],
             self.ma[self.t - self.window + 1:self.t + 1] / self.ma[self.t - self.window + 1],
             self.ema[self.t - self.window + 1:self.t + 1] / self.ema[self.t - self.window + 1],
+            self.dema[self.t - self.window + 1:self.t + 1] / self.dema[self.t - self.window + 1],
+            self.kama[self.t - self.window + 1:self.t + 1] / self.kama[self.t - self.window + 1],
+            self.sma[self.t - self.window + 1:self.t + 1] / self.sma[self.t - self.window + 1],
+            self.tema[self.t - self.window + 1:self.t + 1] / self.tema[self.t - self.window + 1],
+            self.trima[self.t - self.window + 1:self.t + 1] / self.trima[self.t - self.window + 1],
             self.bollinger_lower_bound[self.t - self.window + 1:self.t + 1] / self.bollinger_lower_bound[self.t - self.window + 1],
             self.bollinger_upper_bound[self.t - self.window + 1:self.t + 1] / self.bollinger_upper_bound[self.t - self.window + 1],
+
             self.list_holding[self.t - self.window + 1:self.t + 1]
 
         ]).T]
@@ -112,8 +128,8 @@ class QtradeEnv(gym.Env):
         self.list_holding[self.t+1] = self.cash>0
 
 
-        reward = self._utility((self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]
-                               -(self.close[self.t + 1] - self.close[self.t])/self.close[self.t])
+        reward = 2*(self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]-\
+                 (self.close[self.t + 1] - self.close[self.t])/self.close[self.t]
 
 
         done = self.steps > 5000
@@ -129,7 +145,7 @@ class QtradeEnv(gym.Env):
         self.df = pd.read_csv(self.root_dir + self.df_dir)
 
         print('reset')
-        self.t = self.window + np.random.random_integers(0, self.T-5000)
+        self.t = self.window + np.random.random_integers(0, self.T-5000-self.window)
         self.list_cash = self.T * [1]
         self.list_holding = self.T*[1]
         self.steps = 0
