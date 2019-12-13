@@ -21,7 +21,7 @@ class QtradeEnv(gym.Env):
         self.df = pd.read_csv(self.root_dir + self.df_dir)
         self.alpha = Alpha(self.df)
         self.cost = -0.0001
-        self.interest_rate = 0.5/240/240  # internal interest rate
+        self.interest_rate = 0./240/240  # internal interest rate
         self.window = 50
         self.total_steps = 50000
         self.cash = 1
