@@ -28,7 +28,7 @@ class QtradeEnv(gym.Env):
         self.t = self.window + 1
         self.i = 0
         self.T = len(self.df)
-        self.total_steps = self.T -self.window - 2
+        self.total_steps = int(self.T/2)
         self.list_asset = np.ones(self.T)
         self.list_holding = np.ones(self.T)
 
@@ -154,6 +154,7 @@ class QtradeEnv(gym.Env):
         self.i += 1
 
         self.df_dir = np.random.choice(self.list_dir)
+        print(self.df_dir)
         self.df = pd.read_csv(self.root_dir + self.df_dir)
 
         print('reset: ' + str(self.i))
