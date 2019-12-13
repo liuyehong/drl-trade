@@ -23,7 +23,6 @@ model = PPO2.load('ppo2')
 obs = env.reset()
 print('---Test begins---')
 for i in range(QtradeEnv().total_steps*10):
-    obs = env.reset()
     action, _states = model.predict(obs)
     obs, rewards, done, info = env.step(action)
 

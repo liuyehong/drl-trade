@@ -23,12 +23,12 @@ class QtradeEnv(gym.Env):
         self.cost = -0.0001
         self.interest_rate = 0./240/240  # internal interest rate
         self.window = 50
-        self.total_steps = 50000
         self.cash = 1
         self.stock = 0
         self.t = self.window + 1
         self.i = 0
         self.T = len(self.df)
+        self.total_steps = self.T -self.window - 2
         self.list_asset = np.ones(self.T)
         self.list_holding = np.ones(self.T)
 
@@ -162,16 +162,11 @@ class QtradeEnv(gym.Env):
         self.list_holding = self.T*[1]
         self.steps = 0
 
-        #if np.random.rand()>0.5:
-        self.cash = 1
+
+        self.cash = self.close[self.t]
         self.stock = 0
-        self.asset0 = 1
-        self.close0 = self.close[self.t-1]
-       #else:
-       #     self.cash = 0
-       #     self.stock = 1
-       #     self.asset0 = self.close[self.t]
-       #     self.close0 = self.close[self.t]
+        self.asset0 = self.close[self.t]
+        self.close0 = self.close[self.t]
 
 
         return self._next_observation()

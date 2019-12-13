@@ -70,36 +70,36 @@ class Alpha:
         return signal
 
     def moving_average(self, window=10):
-        signal = np.concatenate([np.nan*np.ones(window-1), np.mean(self.rolling_window(self.close, window=window), axis=1)])
+        signal = np.concatenate([np.ones(window-1), np.mean(self.rolling_window(self.close, window=window), axis=1)])
         return signal
 
     def moving_std(self, window=10):
         signal = np.concatenate(
-            [np.nan * np.ones(window - 1), np.std(self.rolling_window(self.close, window=window), axis=1)])
+            [np.ones(window - 1), np.std(self.rolling_window(self.close, window=window), axis=1)])
 
         return signal
 
     def moving_var(self, window=10):
         signal = np.concatenate(
-            [np.nan * np.ones(window - 1), np.var(self.rolling_window(self.close, window=window), axis=1)])
+            [np.ones(window - 1), np.var(self.rolling_window(self.close, window=window), axis=1)])
 
         return signal
 
     def moving_med(self, window=10):
         signal = np.concatenate(
-            [np.nan * np.ones(window - 1), np.median(self.rolling_window(self.close, window=window), axis=1)])
+            [np.ones(window - 1), np.median(self.rolling_window(self.close, window=window), axis=1)])
 
         return signal
 
     def moving_max(self, window=10):
         signal = np.concatenate(
-            [np.nan*np.ones(window-1), np.max(self.rolling_window(self.close, window=window), axis=1)])
+            [np.ones(window-1), np.max(self.rolling_window(self.close, window=window), axis=1)])
 
         return signal
 
     def moving_min(self, window=10):
         signal = np.concatenate(
-            [np.nan * np.ones(window - 1), np.min(self.rolling_window(self.close, window=window), axis=1)])
+            [np.ones(window - 1), np.min(self.rolling_window(self.close, window=window), axis=1)])
 
         return signal
 
@@ -124,7 +124,7 @@ class Alpha:
         return real
 
     def EMA(self, window=30):
-        real = talib.EMA(close, timeperiod=window)
+        real = talib.EMA(self.close, timeperiod=window)
         return real
 
     def HT_TRENDLINE(self):
@@ -149,11 +149,11 @@ class Alpha:
 
 
     def MIDPOINT(self, window=14):
-        real = talib.MIDPOINT(close, timeperiod=window)
+        real = talib.MIDPOINT(self.close, timeperiod=window)
         return real
 
     def MIDPRICE(self, window=14):
-        real = talib.MIDPRICE(high, low, timeperiod=window)
+        real = talib.MIDPRICE(self.high, self.low, timeperiod=window)
         return real
 
     def SAR(self):
@@ -182,7 +182,7 @@ class Alpha:
 
     def ADXR(self, window=14):
         real = talib.ADXR(self.high, self.low, self.close, timeperiod=window)
-        return ADXR
+        return real
 
     def APO(self, window1=12, window2=26):
         real = talib.APO(self.close, fastperiod=12, slowperiod=26, matype=0)
@@ -202,6 +202,8 @@ class Alpha:
 
     def CCI(self, window=14):
         real = talib.CCI(self.high, self.low, self.close, timeperiod=window)
+        return real
+
 
     def CMP(self, window=14):
         real = talib.CMO(self.close, timeperiod=window)
