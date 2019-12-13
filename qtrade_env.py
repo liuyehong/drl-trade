@@ -7,7 +7,8 @@ import numpy as np
 import os
 import datetime
 
-
+# The positive region is in the upper bollinger band. How should we let the algorithm converges in this global opt?
+# The algo always stuck in the loer bollinger band, some pretrain might be important
 class QtradeEnv(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
@@ -19,12 +20,14 @@ class QtradeEnv(gym.Env):
         self.df_dir = np.random.choice(self.list_dir)
         self.df = pd.read_csv(self.root_dir + self.df_dir)
         self.alpha = Alpha(self.df)
-        self.cost = 0.001
-        self.interest_rate = 0.05/240/240  # internal interest rate
+        self.cost = -0.0001
+        self.interest_rate = 0.5/240/240  # internal interest rate
         self.window = 50
+        self.total_steps = 50000
         self.cash = 1
         self.stock = 0
         self.t = self.window + 1
+        self.i = 0
         self.T = len(self.df)
         self.list_asset = np.ones(self.T)
         self.list_holding = np.ones(self.T)
@@ -47,6 +50,7 @@ class QtradeEnv(gym.Env):
         self.sma = self.alpha.SMA(window=self.window)
         self.tema = self.alpha.TEMA(window=self.window)
         self.trima = self.alpha.TRIMA(window=self.window)
+        self.linearreg_slope = self.alpha.LINEARREG_SLOPE(window=self.window)
 
 
         self.mstd = self.alpha.moving_std(window=self.window)
@@ -64,31 +68,28 @@ class QtradeEnv(gym.Env):
 
         # Prices contains the OHCL values for the last five prices
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(1, self.window, 18), dtype=np.float16)
+            low=-np.inf, high=np.inf, shape=(1, self.window, 1), dtype=np.float16)
 
 
     def _next_observation(self):
 
         obs = [np.array([
-            self.close_diff[self.t - self.window + 1:self.t + 1] / self.close[self.t - self.window + 1],
-            self.high_diff[self.t - self.window + 1:self.t + 1] / self.high[self.t - self.window + 1],
-            self.open_diff[self.t - self.window + 1:self.t + 1] / self.open[self.t - self.window + 1],
-            self.low_diff[self.t - self.window + 1:self.t + 1] / self.low[self.t - self.window + 1],
-            self.close[self.t - self.window + 1:self.t + 1] / self.close[self.t - self.window + 1],
-            self.high[self.t - self.window + 1:self.t + 1] / self.high[self.t - self.window + 1],
-            self.open[self.t - self.window + 1:self.t + 1] / self.open[self.t - self.window + 1],
-            self.low[self.t - self.window + 1:self.t + 1] / self.low[self.t - self.window + 1],
-            self.ma[self.t - self.window + 1:self.t + 1] / self.ma[self.t - self.window + 1],
-            self.ema[self.t - self.window + 1:self.t + 1] / self.ema[self.t - self.window + 1],
-            self.dema[self.t - self.window + 1:self.t + 1] / self.dema[self.t - self.window + 1],
-            self.kama[self.t - self.window + 1:self.t + 1] / self.kama[self.t - self.window + 1],
-            self.sma[self.t - self.window + 1:self.t + 1] / self.sma[self.t - self.window + 1],
-            self.tema[self.t - self.window + 1:self.t + 1] / self.tema[self.t - self.window + 1],
-            self.trima[self.t - self.window + 1:self.t + 1] / self.trima[self.t - self.window + 1],
-            self.bollinger_lower_bound[self.t - self.window + 1:self.t + 1] / self.bollinger_lower_bound[self.t - self.window + 1],
-            self.bollinger_upper_bound[self.t - self.window + 1:self.t + 1] / self.bollinger_upper_bound[self.t - self.window + 1],
-
-            self.list_holding[self.t - self.window + 1:self.t + 1]
+            self.close[self.t - self.window + 1:self.t + 1] / self.ma[self.t ],
+            #self.high[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.open[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.low[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.ma[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.ema[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.dema[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.kama[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.sma[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.tema[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.trima[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.bollinger_lower_bound[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #self.bollinger_upper_bound[self.t - self.window + 1:self.t + 1] / self.ma[self.t],
+            #np.zeros(self.window), # find optimize window size with constant observation.
+            #self.list_holding[self.t - self.window + 1:self.t + 1],
+            #self.list_cash[self.t - self.window + 1:self.t + 1],
 
         ]).T]
 
@@ -103,19 +104,20 @@ class QtradeEnv(gym.Env):
     def step(self, action):
 
         # action[buy/sell/hold]
-        order_price_b = self.ma[self.t] + self.mstd[self.t] * action[0]
-        order_price_s = self.ma[self.t] + self.mstd[self.t] * action[1]
+        order_price_b = np.floor(100*(self.ma[self.t] + self.mstd[self.t] * action[0]))/100.
+        order_price_s = np.ceil(100*self.ma[self.t] + self.mstd[self.t] * action[1])/100.
 
-        if self.cash > 0 and order_price_b > self.alpha.low[self.t+1]:
-            take_price = min(self.alpha.open[self.t+1], order_price_b)
+        if self.cash > 0 and order_price_b > self.close[self.t]:
+            take_price = self.close[self.t]
             self.stock = self.cash/take_price*(1-self.cost)
             self.cash = 0
             print('buy: ' + str(take_price))
             print(self.steps, self.t, self.close[self.t] / self.close0, self.list_asset[self.t] / self.asset0, action,
                   self.list_asset[self.t] / self.asset0 - self.close[self.t] / self.close0)
 
-        elif self.stock > 0 and order_price_s < self.alpha.high[self.t+1]:
-            take_price = max(self.alpha.open[self.t+1], order_price_s)
+
+        elif self.stock > 0 and order_price_s < self.close[self.t]:
+            take_price = self.close[self.t]
             self.cash = self.stock*take_price*(1-self.cost)
             self.stock = 0
             print('sell: ' + str(take_price))
@@ -128,11 +130,15 @@ class QtradeEnv(gym.Env):
         self.list_holding[self.t+1] = self.cash>0
 
 
-        reward = 2*(self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t]-\
-                 (self.close[self.t + 1] - self.close[self.t])/self.close[self.t]
+        # it is important to use relative return as a reward
+        reward = (self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t] - \
+                 (self.close[self.t + 1] - self.close[self.t]) / self.close[self.t]
+
+        if self.cash>0:
+            reward += -self.interest_rate
 
 
-        done = self.steps > 5000
+        done = self.steps > self.total_steps
         self.steps += 1
         obs = self._next_observation()
 
@@ -141,25 +147,31 @@ class QtradeEnv(gym.Env):
 
 
     def reset(self):
+        # To avoid stuck in local opt, it is important to increase the cost step by step
+        if self.cost<0.0005:
+            self.cost += 0.0001
+            print('cost'+str(self.cost))
+        self.i += 1
+
         self.df_dir = np.random.choice(self.list_dir)
         self.df = pd.read_csv(self.root_dir + self.df_dir)
 
-        print('reset')
-        self.t = self.window + np.random.random_integers(0, self.T-5000-self.window)
+        print('reset: ' + str(self.i))
+        self.t = 1 + self.window + np.random.random_integers(0, self.T-self.total_steps-self.window-1)
         self.list_cash = self.T * [1]
         self.list_holding = self.T*[1]
         self.steps = 0
 
-        if np.random.rand()>0.5:
-            self.cash = 1
-            self.stock = 0
-            self.asset0 = 1
-            self.close0 = self.close[self.t]
-        else:
-            self.cash = 0
-            self.stock = 1
-            self.asset0 = self.close[self.t]
-            self.close0 = self.close[self.t]
+        #if np.random.rand()>0.5:
+        self.cash = 1
+        self.stock = 0
+        self.asset0 = 1
+        self.close0 = self.close[self.t-1]
+       #else:
+       #     self.cash = 0
+       #     self.stock = 1
+       #     self.asset0 = self.close[self.t]
+       #     self.close0 = self.close[self.t]
 
 
         return self._next_observation()
