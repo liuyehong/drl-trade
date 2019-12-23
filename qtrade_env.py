@@ -131,7 +131,7 @@ class QtradeEnv(gym.Env):
 
 
         # it is important to use relative return as a reward
-        reward = 2*(self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t] - \
+        reward = (self.list_asset[self.t + 1] - self.list_asset[self.t])/self.list_asset[self.t] - \
                  (self.close[self.t + 1] - self.close[self.t]) / self.close[self.t]
 
         if self.cash>0:
